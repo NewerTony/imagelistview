@@ -22,6 +22,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms.VisualStyles;
+using System.IO;
 
 namespace Manina.Windows.Forms
 {
@@ -44,6 +45,13 @@ namespace Manina.Windows.Forms
             private bool disposed;
             private bool creatingGraphics;
             private DateTime lastRenderTime;
+            
+            private string LastFile;
+            Image GifImage;
+            bool currentlyAnimating = false;
+            private EventHandler m_evtAnimator = null;
+            bool EventHendlerExist = false;
+         
             #endregion
 
             #region Properties
@@ -477,8 +485,104 @@ namespace Manina.Windows.Forms
                 else
                     g.SetClip(ImageListView.layoutManager.ClientArea);
 
-                DrawGalleryImage(g, item, image, bounds);
+                //DrawGalleryImage(g, item, image, bounds);
+                try
+                {
+                    if (File.Exists(item.FileName))
+                    {
+                        if (ImageAnimator.CanAnimate(Image.FromFile(item.FileName)) && (Image.FromFile(item.FileName).RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Gif)))
+                        {
+                            if (LastFile != item.FileName)
+                            {
+                                ImageAnimator.StopAnimate(GifImage, m_evtAnimator);
+                                LastFile = item.FileName;
+                                currentlyAnimating = false;
+                                GifImage = Image.FromFile(item.FileName);
+                                AnimateImage();
+                                //Console.WriteLine("LastFile != item.FileName");
+                            }
+                            //Begin the animation.
+                            //Get the next frame ready for rendering.
+                            ImageAnimator.UpdateFrames();
+                            DrawGalleryImage(g, item, GifImage, bounds);
+                            //Console.WriteLine(item.FileName);
+                            GC.Collect();
+                        }
+                        else
+                        {
+                            //Is not an animated file
+                            DrawGalleryImage(g, item, image, bounds);
+                            StopAnimation();
+                        }
+                    }
+                    else
+                    {
+                        // Throw New ArgumentException("Not Valid Image")
+                        DrawGalleryImage(g, item, image, bounds);
+                        StopAnimation();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Throw New ArgumentException("Not Valid Image")
+                    DrawGalleryImage(g, item, image, bounds);
+                    //Console.WriteLine("NORMAL DRAW FROM CATCH 2.");
+                    StopAnimation();
+                    return;
+                }
+
             }
+            //----------------------------------------------------------------------------------
+            private void StopAnimation()
+            {
+                ImageAnimator.StopAnimate(GifImage, m_evtAnimator);
+                LastFile = "";
+                currentlyAnimating = false;
+                GifImage = null;
+                GC.Collect();
+            }
+
+            //-----------------------------------------------------------------------------------------
+            //This method begins the animation.
+
+            public void AnimateImage()
+            {
+                if (!currentlyAnimating)
+                {
+                    //Begin the animation only once.
+                    if (!EventHendlerExist)
+                    {
+                        m_evtAnimator = new EventHandler(OnFrameChanged);
+                        EventHendlerExist = true;
+                    }
+                    ImageAnimator.Animate(GifImage, (m_evtAnimator));
+                    currentlyAnimating = true;
+                }
+                else
+                {
+                    ImageAnimator.StopAnimate(GifImage, m_evtAnimator);
+                    currentlyAnimating = false;
+                    LastFile = "";
+                    GifImage = null;
+                    GC.Collect();
+                    //Console.WriteLine("STOP ANIMATION.");
+                }
+            }
+
+            private void OnFrameChanged(Object sender, EventArgs e)
+            {
+                if (currentlyAnimating)
+                {
+                    //Force a call to the Paint event handler.
+                    ImageListView.Invalidate();
+                    //Console.WriteLine("OnFrameChanged.");
+                    GC.Collect();
+
+                }
+            }
+            ///
+ 
+            
             /// <summary>
             /// Renders the pane.
             /// </summary>
@@ -510,8 +614,52 @@ namespace Manina.Windows.Forms
                     g.SetClip(bounds);
                 else
                     g.SetClip(ImageListView.layoutManager.ClientArea);
-
-                DrawPane(g, item, image, bounds);
+                
+                //DrawPane(g, item, image, bounds);
+                try
+                {
+                    if (File.Exists(item.FileName))
+                    {
+                        if (ImageAnimator.CanAnimate(Image.FromFile(item.FileName)) && (Image.FromFile(item.FileName).RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Gif)))
+                        {
+                            if (LastFile != item.FileName)
+                            {
+                                ImageAnimator.StopAnimate(GifImage, m_evtAnimator);
+                                LastFile = item.FileName;
+                                currentlyAnimating = false;
+                                GifImage = Image.FromFile(item.FileName);
+                                AnimateImage();
+                                //Console.WriteLine("LastFile != item.FileName");
+                            }
+                            //Begin the animation.
+                            //Get the next frame ready for rendering.
+                            ImageAnimator.UpdateFrames();
+                            DrawPane(g, item, GifImage, bounds);
+                            //Console.WriteLine(item.FileName);
+                            GC.Collect();
+                        }
+                        else
+                        {
+                            //Is not an animated file
+                            DrawPane(g, item, image, bounds);
+                            StopAnimation();
+                        }
+                    }
+                    else
+                    {
+                        // Throw New ArgumentException("Not Valid Image")
+                        DrawPane(g, item, image, bounds);
+                        StopAnimation();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Throw New ArgumentException("Not Valid Image")
+                    DrawPane(g, item, image, bounds);
+                    //Console.WriteLine("NORMAL DRAW FROM CATCH 2.");
+                    StopAnimation();
+                    return;
+                }
             }
             /// <summary>
             /// Renders the items.
